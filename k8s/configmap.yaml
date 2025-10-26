@@ -1,0 +1,6 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-config
+data:
+  OPENWEATHER_API_KEY: "e02fb82228fb3bdae53a93ef66a4d5e5"

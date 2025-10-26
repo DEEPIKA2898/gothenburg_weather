@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gothenburg-weather
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gothenburg-weather
+  template:
+    metadata:
+      labels:
+        app: gothenburg-weather
+    spec:
+      containers:
+        - name: gothenburg-weather
+          image: deepikaelangovan2811/gothenburg-weather:v1
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: weather-config
