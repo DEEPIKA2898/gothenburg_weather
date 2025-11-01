@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gothenburg-weather
+  labels:
+    app: gothenburg-weather
 spec:
   replicas: 1
   selector:
@@ -14,9 +16,11 @@ spec:
     spec:
       containers:
         - name: gothenburg-weather
-          image: deepikaelangovan2811/gothenburg-weather:v1
+          image: deepikaelangovan2811/gothenburg_weather:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           envFrom:
             - configMapRef:
                 name: weather-config
+      restartPolicy: Always
