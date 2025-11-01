@@ -41,6 +41,7 @@ The goal is to simulate a production-grade deployment workflow entirely in a loc
              └───────────────────────────┘
 
 ⚙️ Tech Stack
+
 Category	Tool
 Backend Framework	FastAPI
 Language	            Python 3.9
@@ -51,6 +52,8 @@ Cloud Registry	Docker Hub
 Configuration	ConfigMap
 
 📁 Repository Structure
+
+
 ├── app/
 │   ├── main.py              # FastAPI entrypoint
 │   ├── requirements.txt     # Python dependencies
@@ -73,6 +76,7 @@ Every push to the main branch triggers GitHub Actions to:
 4️⃣ Trigger a Kubernetes deployment update using the latest image
 
 🐳 Docker Setup
+
 # Build the Docker image
 docker build -t gothenburg-weather:latest .
 
