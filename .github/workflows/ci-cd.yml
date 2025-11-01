@@ -45,10 +45,13 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 6️⃣ Push image to Docker Hub
-      - name: Push image to Docker Hub
+      # 7️⃣ Tag also as "latest"
+      - name: Tag and push as latest
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:${{ env.IMAGE_TAG }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:${{ env.IMAGE_TAG }} \
+            ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:latest
+
 
       # 7️⃣ Output final image tag
       - name: Output image tag
