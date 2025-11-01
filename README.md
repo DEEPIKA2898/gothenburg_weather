@@ -19,6 +19,7 @@ ConfigMaps for environment variable management
 The goal is to simulate a production-grade deployment workflow entirely in a local Kubernetes environment, ideal for DevOps learning and demos.
 
 🏗️ Architecture
+
             ┌───────────────────────────┐
             │  GitHub Repository         │
             │  (Code + Workflow YAML)    │
@@ -42,12 +43,13 @@ The goal is to simulate a production-grade deployment workflow entirely in a loc
 ⚙️ Tech Stack
 Category	Tool
 Backend Framework	FastAPI
-Language	Python 3.9
+Language	            Python 3.9
 Containerization	Docker
-CI/CD	GitHub Actions
+CI/CD	            GitHub Actions
 Orchestration	Kubernetes (Minikube)
 Cloud Registry	Docker Hub
 Configuration	ConfigMap
+
 📁 Repository Structure
 ├── app/
 │   ├── main.py              # FastAPI entrypoint
@@ -131,18 +133,11 @@ Running production-like workloads on Kubernetes
 
 Integrating DevOps tools for continuous delivery
 
-📚 Future Improvements
+Added Prometheus + Grafana for monitoring
 
-Add Prometheus + Grafana for monitoring
-
-Integrate Helm for templated deployments
-
-Add automated testing and linting steps
 
 👩‍💻 Author
 
 Deepika Elangovan
 🔹 DevOps Engineer | Azure | Kubernetes | CI/CD Automation
-📍 Based in Gothenburg, Sweden
 
-🔗 LinkedIn Profile
