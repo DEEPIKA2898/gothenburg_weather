@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: gothenburg-weather
-          image: deepikaelangovan2811/gothenburg-weather:latest  # manually update this when you want latest
+          image: deepikaelangovan2811/gothenburg-weather:latest  
           imagePullPolicy: Always
           ports:
             - containerPort: 8080

@@ -1,4 +1,4 @@
-name: CI - Gothenburg Weather API (Minikube)
+name: CI/CD - Gothenburg Weather App
 
 on:
   push:
@@ -6,56 +6,127 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather
+
 jobs:
+  # ──────────────────────────────────────────
+  # CI — Build, validate and push Docker image
+  # ──────────────────────────────────────────
   build-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_version: ${{ steps.version.outputs.version }}
 
     steps:
       # 1️⃣ Checkout source code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python for simple validation
+      # 2️⃣ Set up Python (matching Dockerfile version)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.11"
 
+      # 3️⃣ Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # 3️⃣ Validate FastAPI app
-      - name: Validate app startup
-        run: |
-          python -c "import uvicorn; print('✅ FastAPI startup check passed')"
 
-      # 4️⃣ Build Docker image with unique Git SHA tag
-      - name: Build Docker image
+      # 5️⃣ Generate version tag: 0.YYYYMMDD.<run_number>
+      - name: Generate version tag
+        id: version
         run: |
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:${IMAGE_TAG} .
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          DATE=$(date +'%Y%m%d')
+          VERSION="0.${DATE}.${{ github.run_number }}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Generated version: ${VERSION}"
 
-      # 5️⃣ Log in to Docker Hub
+      # 6️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 7️⃣ Tag also as "latest"
-      - name: Tag and push as latest
+      # 7️⃣ Build Docker image
+      - name: Build Docker image
         run: |
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:${{ env.IMAGE_TAG }} \
-            ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:latest
+          docker build -t ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }} .
 
-
-      # 7️⃣ Output final image tag
-      - name: Output image tag
+      # 8️⃣ Push versioned image
+      - name: Push versioned image
         run: |
-          echo "Image pushed: ${DOCKERHUB_USERNAME}/gothenburg-weather:${IMAGE_TAG}"
+          docker push ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
 
+  # ──────────────────────────────────────────
+  # CD — Deploy to Minikube inside the runner
+  # ──────────────────────────────────────────
+  deploy-minikube:
+    runs-on: ubuntu-latest
+    needs: build-push  # Only runs after CI job succeeds
+
+    steps:
+      # 1️⃣ Checkout source code (needed for k8s manifests)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Start Minikube
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@latest
+        with:
+          minikube-version: latest
+          kubernetes-version: stable
+
+      # 3️⃣ Verify cluster is up
+      - name: Verify Minikube cluster
+        run: |
+          kubectl get nodes
+          kubectl cluster-info
+
+      # 4️⃣ Create Kubernetes Secret for API key (instead of ConfigMap plaintext)
+      - name: Create API key secret
+        run: |
+          kubectl create secret generic weather-secret \
+            --from-literal=OPENWEATHER_API_KEY=${{ secrets.OPENWEATHER_API_KEY }}
+
+      # 5️⃣ Update deployment image to the versioned tag built in CI job
+      - name: Set image version in deployment
+        run: |
+          sed -i "s|image:.*gothenburg-weather.*|image: ${{ env.IMAGE_NAME }}:${{ needs.build-push.outputs.image_version }}|" k8s/deployment.yaml
+
+      # 6️⃣ Apply Kubernetes manifests
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+
+      # 7️⃣ Wait for deployment to be ready
+      - name: Wait for deployment rollout
+        run: |
+          kubectl rollout status deployment/gothenburg-weather --timeout=120s
+
+      # 8️⃣ Smoke test — check the service responds with HTTP 200
+      - name: Smoke test service
+        run: |
+          SERVICE_URL=$(minikube service gothenburg-weather-service --url)
+          echo "Service URL: ${SERVICE_URL}"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${SERVICE_URL})
+          echo "HTTP Status: ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Smoke test failed — expected 200, got ${STATUS}"
+            kubectl logs deployment/gothenburg-weather
+            exit 1
+          fi
+          echo "✅ Smoke test passed — service is responding"
+
+      # 9️⃣ Print final pod status
+      - name: Print pod status
+        if: always()
+        run: |
+          kubectl get pods
+          kubectl get services

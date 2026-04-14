@@ -19,13 +19,20 @@ UNITS = "metric"
 def home(request: Request):
     weather_url = f"{BASE_URL}/weather?q={CITY}&appid={API_KEY}&units={UNITS}"
     forecast_url = f"{BASE_URL}/forecast?q={CITY}&appid={API_KEY}&units={UNITS}"
-    
-    weather = requests.get(weather_url).json()
-    forecast = requests.get(forecast_url).json()
-    
+
+    try:
+        weather = requests.get(weather_url, timeout=10).json()
+        forecast = requests.get(forecast_url, timeout=10).json()
+    except Exception:
+        return templates.TemplateResponse(request, "index.html", {
+            "error": "Could not reach weather service. Please try again later."
+        })
+
     if "main" not in weather:
-        return templates.TemplateResponse("index.html", {"request": request, "error": "Weather data unavailable"})
-    
+        return templates.TemplateResponse(request, "index.html", {
+            "error": "Weather data unavailable. Check your API key."
+        })
+
     forecasts = [
         {
             "datetime": item["dt_txt"],
@@ -34,9 +41,8 @@ def home(request: Request):
         }
         for item in forecast["list"][:5]
     ]
-    
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+
+    return templates.TemplateResponse(request, "index.html", {
         "city": CITY,
         "temp": weather["main"]["temp"],
         "desc": weather["weather"][0]["description"].capitalize(),
