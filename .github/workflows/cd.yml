@@ -1,0 +1,24 @@
+# 1️⃣ Login to Azure
+- name: Azure Login
+  uses: azure/login@v2
+  with:
+    creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+# 2️⃣ Set AKS context
+- name: Set AKS context
+  uses: azure/aks-set-context@v3
+  with:
+    resource-group: ${{ secrets.RESOURCE_GROUP }}
+    cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+# 3️⃣ Deploy to AKS
+- name: Deploy to AKS
+  run: |
+    kubectl apply -f k8s/deployment.yaml
+    kubectl apply -f k8s/service.yaml
+    
+ //instead of static yaml, deploying using ci image
+- name: Update image in AKS
+  run: |
+    kubectl set image deployment/weather-app \
+    weather-app=${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather:${{ env.IMAGE_TAG }}
