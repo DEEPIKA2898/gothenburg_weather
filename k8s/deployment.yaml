@@ -14,10 +14,17 @@ spec:
     spec:
       containers:
         - name: gothenburg-weather
-          image: deepikaelangovan2811/gothenburg-weather:latest  
+          image: deepikaelangovan2811/gothenburg-weather:0.00000000.0  # replaced by CI/CD pipeline
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
           envFrom:
-            - configMapRef:
-                name: weather-config
+            - secretRef:
+                name: weather-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
