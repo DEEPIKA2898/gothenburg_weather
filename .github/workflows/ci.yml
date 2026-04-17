@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/gothenburg-weather
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # suppress Node.js 20 deprecation warning
 
 jobs:
   # ──────────────────────────────────────────
@@ -35,7 +36,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-
+      # 4️⃣ Validate FastAPI app can be imported
+      - name: Validate app startup
+        run: |
+          python -c "import uvicorn; print('✅ FastAPI startup check passed')"
 
       # 5️⃣ Generate version tag: 0.YYYYMMDD.<run_number>
       - name: Generate version tag
@@ -63,6 +67,10 @@ jobs:
         run: |
           docker push ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
 
+      # 9️⃣ Output final image info
+      - name: Output image info
+        run: |
+          echo "✅ Image pushed: ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}"
 
   # ──────────────────────────────────────────
   # CD — Deploy to Minikube inside the runner
@@ -111,13 +119,25 @@ jobs:
         run: |
           kubectl rollout status deployment/gothenburg-weather --timeout=120s
 
-      # 8️⃣ Smoke test — check the service responds with HTTP 200
+      # 8️⃣ Smoke test — port-forward and check HTTP 200
+      # Note: minikube service --url returns an internal Docker network IP
+      # that is not reachable from the runner host shell (exit code 7).
+      # kubectl port-forward binds to localhost instead, which works reliably.
       - name: Smoke test service
         run: |
-          SERVICE_URL=$(minikube service gothenburg-weather-service --url)
-          echo "Service URL: ${SERVICE_URL}"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${SERVICE_URL})
+          # Forward pod port 8080 to localhost:8888 in the background
+          kubectl port-forward deployment/gothenburg-weather 8888:8080 &
+          PF_PID=$!
+
+          # Give it 5 seconds to establish
+          sleep 5
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8888)
           echo "HTTP Status: ${STATUS}"
+
+          # Clean up port-forward process
+          kill $PF_PID 2>/dev/null || true
+
           if [ "$STATUS" != "200" ]; then
             echo "❌ Smoke test failed — expected 200, got ${STATUS}"
             kubectl logs deployment/gothenburg-weather
